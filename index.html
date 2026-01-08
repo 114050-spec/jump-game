@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>竹崎林鐵大冒險 - 快閃大富翁</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f4f0; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        #game-container { position: relative; width: 600px; height: 600px; background: white; border: 10px solid #2d5a27; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        #center-art { position: absolute; top: 100px; left: 100px; width: 400px; height: 400px; background: url('https://images.unsplash.com/photo-1505575967455-40e256f73376?auto=format&fit=crop&q=80&w=400') center/cover; border-radius: 10px; display: flex; align-items: center; justify-content: center; text-align: center; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-size: 24px; font-weight: bold; }
+        .cell { position: absolute; width: 98px; height: 98px; border: 1px solid #ccc; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; text-align: center; background: #fff; }
+        .active { background: #ffeb3b !important; border: 3px solid #f44336; z-index: 10; font-weight: bold; }
+        .token-info { margin-top: 20px; display: flex; gap: 20px; font-size: 18px; }
+        .badge { padding: 5px 15px; border-radius: 20px; background: #ddd; color: #888; }
+        .badge.owned { background: #4caf50; color: white; }
+        #controls { margin-top: 20px; text-align: center; }
+        button { padding: 10px 30px; font-size: 20px; cursor: pointer; background: #2d5a27; color: white; border: none; border-radius: 5px; }
+        #log { margin-top: 15px; color: #333; height: 40px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>🚂 竹崎林鐵大冒險</h1>
+    
+    <div id="game-container">
+        <div id="center-art">阿里山門戶<br>嘉義竹崎</div>
+        </div>
+
+    <div class="token-info">
+        <div id="badge-rail" class="badge">🚂 鐵道勳章</div>
+        <div id="badge-nature" class="badge">🌿 自然勳章</div>
+        <div id="badge-food" class="badge">🍱 美食勳章</div>
+    </div>
+
+    <div id="controls">
+        <button onclick="rollDice()">擲骰子進前</button>
+        <div id="log">點擊按鈕開始旅行（剩餘 10 次機會）</div>
+    </div>
+
+<script>
+    const cellsData = [
+        { name: "竹崎車站", type: "rail", msg: "出發！獲得鐵道勳章" },
+        { name: "鹿麻產", type: "", msg: "檜木香氣撲鼻，休息一下" },
+        { name: "獨立山", type: "move", msg: "螺旋鐵道奇觀，前進 1 格" },
+        { name: "觀音瀑布", type: "nature", msg: "負離子滿滿！獲得自然勳章" },
+        { name: "圓潭園區", type: "", msg: "聽見莫氏樹蛙的叫聲了" },
+        { name: "瑞里隧道", type: "", msg: "漫步竹林，心情舒暢" },
+        { name: "石棹雲海", type: "stay", msg: "霧氣太濃，原地觀察美景" },
+        { name: "奮起湖", type: "food", msg: "聞到便當香了！獲得美食勳章" },
+        { name: "愛玉攤", type: "move", msg: "喝了再上！再走 1 格" },
+        { name: "菸樓文化", type: "", msg: "見證古老的製菸歲月" },
+        { name: "親水公園", type: "", msg: "踏踏水，消除疲勞" },
+        { name: "竹藝教室", type: "", msg: "親手做了一個竹編扇" },
+        { name: "樟腦寮", type: "", msg: "觀賞折返式車站奇景" },
+        { name: "霧之道", type: "nature", msg: "雲霧繚繞，獲得自然勳章" },
+        { name: "鐵道便當", type: "food", msg: "大口吃肉！獲得美食勳章" },
+        { name: "阿里山門戶", type: "end", msg: "準備進入高山森林區！" }
+    ];
+
+    let currentPos = 0;
+    let turns = 10;
+    let badges = { rail: false, nature: false, food: false };
+
+    // 初始化棋盤佈局
+    const container = document.getElementById('game-container');
+    cellsData.forEach((cell, i) => {
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.id = `cell-${i}`;
+        div.innerHTML = `<b>${cell.name}</b>`;
+        
+        // 簡單的環狀定位邏輯
+        let x = 0, y = 0;
+        if (i < 5) { x = i * 100; y = 0; }
+        else if (i < 8) { x = 400; y = (i - 4) * 100; }
+        else if (i < 13) { x = 400 - (i - 8) * 100; y = 400; }
+        else { x = 0; y = 400 - (i - 12) * 100; }
+        
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        container.appendChild(div);
+    });
+
+    updateUI();
+
+    function rollDice() {
+        if (turns <= 0) return;
+
+        const dice = Math.floor(Math.random() * 3) + 1; // 1-3 步，節奏較快
+        currentPos = (currentPos + dice) % 16;
+        turns--;
+
+        const land = cellsData[currentPos];
+        let message = `擲出 ${dice}！來到「${land.name}」。${land.msg}`;
+
+        // 處理勳章邏輯
+        if (land.type === "rail") { badges.rail = true; document.getElementById('badge-rail').classList.add('owned'); }
+        if (land.type === "nature") { badges.nature = true; document.getElementById('badge-nature').classList.add('owned'); }
+        if (land.type === "food") { badges.food = true; document.getElementById('badge-food').classList.add('owned'); }
+        
+        // 處理特殊格子
+        if (land.type === "move") currentPos = (currentPos + 1) % 16;
+
+        updateUI();
+        document.getElementById('log').innerText = `${message} (剩餘 ${turns} 次)`;
+
+        if (badges.rail && badges.nature && badges.food) {
+            alert("恭喜！你已收集完整竹崎特色勳章，成為竹崎旅遊達人！");
+            resetGame();
+        } else if (turns === 0) {
+            alert("旅程結束！下次再嘗試收集所有勳章吧。");
+            resetGame();
+        }
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+        document.getElementById(`cell-${currentPos}`).classList.add('active');
+    }
+
+    function resetGame() {
+        currentPos = 0;
+        turns = 10;
+        badges = { rail: false, nature: false, food: false };
+        document.querySelectorAll('.badge').forEach(b => b.classList.remove('owned'));
+        updateUI();
+    }
+</script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
