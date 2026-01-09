@@ -13,128 +13,401 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>竹崎林鐵大冒險 - 快閃大富翁</title>
+    <title>阿里山大冒險：雲端鐵道之旅</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background: #f0f4f0; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        #game-container { position: relative; width: 600px; height: 600px; background: white; border: 10px solid #2d5a27; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        #center-art { position: absolute; top: 100px; left: 100px; width: 400px; height: 400px; background: url('https://images.unsplash.com/photo-1505575967455-40e256f73376?auto=format&fit=crop&q=80&w=400') center/cover; border-radius: 10px; display: flex; align-items: center; justify-content: center; text-align: center; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-size: 24px; font-weight: bold; }
-        .cell { position: absolute; width: 98px; height: 98px; border: 1px solid #ccc; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; text-align: center; background: #fff; }
-        .active { background: #ffeb3b !important; border: 3px solid #f44336; z-index: 10; font-weight: bold; }
-        .token-info { margin-top: 20px; display: flex; gap: 20px; font-size: 18px; }
-        .badge { padding: 5px 15px; border-radius: 20px; background: #ddd; color: #888; }
-        .badge.owned { background: #4caf50; color: white; }
-        #controls { margin-top: 20px; text-align: center; }
-        button { padding: 10px 30px; font-size: 20px; cursor: pointer; background: #2d5a27; color: white; border: none; border-radius: 5px; }
-        #log { margin-top: 15px; color: #333; height: 40px; font-weight: bold; }
+        body {
+            margin: 0;
+            background-color: #202020;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to top, #87CEEB, #E0F7FA); /* 預設竹崎白天背景 */
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+            font-size: 20px;
+            z-index: 10;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 3px 3px 0 #000;
+            display: none;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🚂 竹崎林鐵大冒險</h1>
-    
-    <div id="game-container">
-        <div id="center-art">阿里山門戶<br>嘉義竹崎</div>
-        </div>
-
-    <div class="token-info">
-        <div id="badge-rail" class="badge">🚂 鐵道勳章</div>
-        <div id="badge-nature" class="badge">🌿 自然勳章</div>
-        <div id="badge-food" class="badge">🍱 美食勳章</div>
+<div id="gameContainer">
+    <div id="ui">
+        分數 (櫻花): <span id="score">0</span> | 地點: <span id="locationName">竹崎親水公園</span>
     </div>
-
-    <div id="controls">
-        <button onclick="rollDice()">擲骰子進前</button>
-        <div id="log">點擊按鈕開始旅行（剩餘 10 次機會）</div>
-    </div>
+    <div id="message"></div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
 
 <script>
-    const cellsData = [
-        { name: "竹崎車站", type: "rail", msg: "出發！獲得鐵道勳章" },
-        { name: "鹿麻產", type: "", msg: "檜木香氣撲鼻，休息一下" },
-        { name: "獨立山", type: "move", msg: "螺旋鐵道奇觀，前進 1 格" },
-        { name: "觀音瀑布", type: "nature", msg: "負離子滿滿！獲得自然勳章" },
-        { name: "圓潭園區", type: "", msg: "聽見莫氏樹蛙的叫聲了" },
-        { name: "瑞里隧道", type: "", msg: "漫步竹林，心情舒暢" },
-        { name: "石棹雲海", type: "stay", msg: "霧氣太濃，原地觀察美景" },
-        { name: "奮起湖", type: "food", msg: "聞到便當香了！獲得美食勳章" },
-        { name: "愛玉攤", type: "move", msg: "喝了再上！再走 1 格" },
-        { name: "菸樓文化", type: "", msg: "見證古老的製菸歲月" },
-        { name: "親水公園", type: "", msg: "踏踏水，消除疲勞" },
-        { name: "竹藝教室", type: "", msg: "親手做了一個竹編扇" },
-        { name: "樟腦寮", type: "", msg: "觀賞折返式車站奇景" },
-        { name: "霧之道", type: "nature", msg: "雲霧繚繞，獲得自然勳章" },
-        { name: "鐵道便當", type: "food", msg: "大口吃肉！獲得美食勳章" },
-        { name: "阿里山門戶", type: "end", msg: "準備進入高山森林區！" }
-    ];
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const locNameEl = document.getElementById('locationName');
+    const msgEl = document.getElementById('message');
 
-    let currentPos = 0;
-    let turns = 10;
-    let badges = { rail: false, nature: false, food: false };
+    // 遊戲參數
+    const GRAVITY = 0.6;
+    const FRICTION = 0.8;
+    const SPEED = 5;
+    const JUMP_FORCE = 12;
 
-    // 初始化棋盤佈局
-    const container = document.getElementById('game-container');
-    cellsData.forEach((cell, i) => {
-        const div = document.createElement('div');
-        div.className = 'cell';
-        div.id = `cell-${i}`;
-        div.innerHTML = `<b>${cell.name}</b>`;
+    // 遊戲狀態
+    let gameRunning = true;
+    let score = 0;
+    let cameraX = 0;
+
+    // 玩家物件
+    const player = {
+        x: 100,
+        y: 400,
+        width: 30,
+        height: 40,
+        velX: 0,
+        velY: 0,
+        jumping: false,
+        color: '#FF0000', // 紅色登山客
+        isBig: false // 吃了奮起湖便當變大
+    };
+
+    // 地圖設計 (平台)
+    // type: 1=蒂芬妮車站(竹崎), 2=木棧道/鐵軌(奮起湖), 3=神木/雲海(阿里山), 4=終點
+    const platforms = [];
+    const coins = []; // 代表櫻花/螢火蟲
+    const items = []; // 代表奮起湖便當
+    const enemies = []; // 代表山豬
+
+    // --- 地圖生成器 ---
+    function initLevel() {
+        platforms.length = 0;
+        coins.length = 0;
+        items.length = 0;
+        enemies.length = 0;
         
-        // 簡單的環狀定位邏輯
-        let x = 0, y = 0;
-        if (i < 5) { x = i * 100; y = 0; }
-        else if (i < 8) { x = 400; y = (i - 4) * 100; }
-        else if (i < 13) { x = 400 - (i - 8) * 100; y = 400; }
-        else { x = 0; y = 400 - (i - 12) * 100; }
+        // 1. 竹崎區 (起點 - 蒂芬妮藍風格)
+        createPlatform(0, 500, 800, 100, 1); 
+        createPlatform(300, 350, 100, 20, 1); // 天空走廊
+        createPlatform(500, 250, 100, 20, 1); 
         
-        div.style.left = x + 'px';
-        div.style.top = y + 'px';
-        container.appendChild(div);
-    });
+        // 敵人: 山豬
+        enemies.push({x: 600, y: 460, width: 30, height: 30, velX: -2, rangeStart: 500, rangeEnd: 750});
 
-    updateUI();
-
-    function rollDice() {
-        if (turns <= 0) return;
-
-        const dice = Math.floor(Math.random() * 3) + 1; // 1-3 步，節奏較快
-        currentPos = (currentPos + dice) % 16;
-        turns--;
-
-        const land = cellsData[currentPos];
-        let message = `擲出 ${dice}！來到「${land.name}」。${land.msg}`;
-
-        // 處理勳章邏輯
-        if (land.type === "rail") { badges.rail = true; document.getElementById('badge-rail').classList.add('owned'); }
-        if (land.type === "nature") { badges.nature = true; document.getElementById('badge-nature').classList.add('owned'); }
-        if (land.type === "food") { badges.food = true; document.getElementById('badge-food').classList.add('owned'); }
+        // 2. 爬升區 (森林鐵道 & 奮起湖)
+        createPlatform(900, 500, 200, 100, 2);
+        createPlatform(1200, 450, 150, 20, 2); // 鐵道橋
+        createPlatform(1450, 350, 100, 20, 2);
+        createPlatform(1600, 250, 150, 20, 2);
         
-        // 處理特殊格子
-        if (land.type === "move") currentPos = (currentPos + 1) % 16;
+        // 奮起湖便當 (道具)
+        items.push({x: 1250, y: 410, width: 25, height: 25, taken: false});
 
-        updateUI();
-        document.getElementById('log').innerText = `${message} (剩餘 ${turns} 次)`;
+        // 3. 阿里山區 (巨木 & 雲海)
+        createPlatform(1900, 400, 100, 20, 3); // 雲朵
+        createPlatform(2100, 300, 100, 20, 3);
+        createPlatform(2300, 200, 500, 400, 3); // 山頂
 
-        if (badges.rail && badges.nature && badges.food) {
-            alert("恭喜！你已收集完整竹崎特色勳章，成為竹崎旅遊達人！");
-            resetGame();
-        } else if (turns === 0) {
-            alert("旅程結束！下次再嘗試收集所有勳章吧。");
-            resetGame();
+        // 終點: 日出觀景台
+        createPlatform(2700, 150, 20, 50, 4); // 旗桿/觀日點
+
+        // 生成櫻花 (金幣)
+        for(let i=0; i<15; i++) {
+            coins.push({
+                x: 300 + i * 150,
+                y: 200 + Math.random() * 200,
+                width: 15,
+                height: 15,
+                collected: false
+            });
         }
     }
 
-    function updateUI() {
-        document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
-        document.getElementById(`cell-${currentPos}`).classList.add('active');
+    function createPlatform(x, y, w, h, type) {
+        platforms.push({x, y, w, h, type});
     }
 
-    function resetGame() {
-        currentPos = 0;
-        turns = 10;
-        badges = { rail: false, nature: false, food: false };
-        document.querySelectorAll('.badge').forEach(b => b.classList.remove('owned'));
-        updateUI();
+    // --- 核心邏輯 ---
+
+    function update() {
+        if (!gameRunning) return;
+
+        // 左右移動
+        if (keys['ArrowRight']) {
+            if (player.velX < SPEED) player.velX++;
+        }
+        if (keys['ArrowLeft']) {
+            if (player.velX > -SPEED) player.velX--;
+        }
+
+        // 物理運算
+        player.velX *= FRICTION;
+        player.velY += GRAVITY;
+        player.x += player.velX;
+        player.y += player.velY;
+
+        // 地板碰撞檢測
+        player.jumping = true;
+        for (let p of platforms) {
+            if (player.x < p.x + p.w &&
+                player.x + player.width > p.x &&
+                player.y + player.height > p.y &&
+                player.y + player.height < p.y + p.h + 20 /* 稍微寬鬆的判定 */ &&
+                player.velY >= 0) {
+                    
+                player.jumping = false;
+                player.velY = 0;
+                player.y = p.y - player.height;
+
+                // 碰到終點
+                if (p.type === 4) {
+                    winGame();
+                }
+            }
+        }
+
+        // 掉落死亡檢測
+        if (player.y > canvas.height + 200) {
+            gameOver();
+        }
+
+        // 道具碰撞 (便當)
+        items.forEach(item => {
+            if (!item.taken && checkCollision(player, item)) {
+                item.taken = true;
+                player.isBig = true;
+                player.width = 40;
+                player.height = 60;
+                player.y -= 20; // 避免卡在地板
+                score += 500;
+                scoreEl.innerText = score;
+            }
+        });
+
+        // 金幣碰撞 (櫻花)
+        coins.forEach(coin => {
+            if (!coin.collected && checkCollision(player, coin)) {
+                coin.collected = true;
+                score += 100;
+                scoreEl.innerText = score;
+            }
+        });
+
+        // 敵人邏輯
+        enemies.forEach(enemy => {
+            // 移動
+            enemy.x += enemy.velX;
+            if (enemy.x < enemy.rangeStart || enemy.x > enemy.rangeEnd) {
+                enemy.velX *= -1;
+            }
+
+            // 碰撞
+            if (checkCollision(player, enemy)) {
+                // 踩頭判定
+                if (player.velY > 0 && player.y + player.height < enemy.y + enemy.height / 2) {
+                    enemy.y = 1000; // 移出畫面
+                    player.velY = -8; // 反彈
+                    score += 200;
+                } else {
+                    if (player.isBig) {
+                        player.isBig = false;
+                        player.width = 30;
+                        player.height = 40;
+                        player.y -= 10;
+                        // 簡單無敵時間省略，直接推開
+                        player.velX = -5;
+                        player.velY = -5;
+                    } else {
+                        gameOver();
+                    }
+                }
+            }
+        });
+
+        // 鏡頭跟隨
+        if (player.x > canvas.width / 2) {
+            cameraX = player.x - canvas.width / 2;
+        } else {
+            cameraX = 0; // 起點不回推
+        }
+
+        // 背景/UI 更新
+        updateEnvironment();
     }
+
+    function draw() {
+        // 清空畫布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 繪製背景 (隨地點變化)
+        let bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        if (player.x < 1000) { // 竹崎
+            bgGradient.addColorStop(0, "#87CEEB"); // 藍天
+            bgGradient.addColorStop(1, "#E0F7FA");
+        } else if (player.x < 2000) { // 森林
+            bgGradient.addColorStop(0, "#A5D6A7"); // 綠霧
+            bgGradient.addColorStop(1, "#2E7D32");
+        } else { // 阿里山日出
+            bgGradient.addColorStop(0, "#FF9800"); // 橘紅日出
+            bgGradient.addColorStop(0.5, "#FFEB3B");
+            bgGradient.addColorStop(1, "#FFF"); // 雲海
+        }
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.translate(-cameraX, 0);
+
+        // 繪製裝飾背景 (雲海/巨木) - 簡單示範
+        drawScenery();
+
+        // 繪製平台
+        platforms.forEach(p => {
+            if (p.type === 1) ctx.fillStyle = "#81D8D0"; // 蒂芬妮藍 (竹崎車站)
+            else if (p.type === 2) ctx.fillStyle = "#5D4037"; // 木棧道 (奮起湖/鐵路)
+            else if (p.type === 3) ctx.fillStyle = "rgba(255,255,255,0.8)"; // 雲海平台
+            else if (p.type === 4) ctx.fillStyle = "#FFD700"; // 終點
+            
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            
+            // 平台細節
+            if(p.type === 2) { // 畫鐵軌紋路
+                 ctx.fillStyle = "#3E2723";
+                 for(let i=0; i<p.w; i+=20) ctx.fillRect(p.x+i, p.y, 5, p.h);
+            }
+        });
+
+        // 繪製道具 (奮起湖便當)
+        items.forEach(item => {
+            if (!item.taken) {
+                ctx.fillStyle = "#FFC107"; // 黃色便當盒
+                ctx.fillRect(item.x, item.y, item.width, item.height);
+                ctx.fillStyle = "black";
+                ctx.font = "10px Arial";
+                ctx.fillText("便當", item.x, item.y+15);
+            }
+        });
+
+        // 繪製金幣 (櫻花)
+        coins.forEach(coin => {
+            if (!coin.collected) {
+                ctx.fillStyle = "#F48FB1"; // 櫻花粉
+                ctx.beginPath();
+                ctx.arc(coin.x + coin.width/2, coin.y + coin.height/2, coin.width/2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        });
+
+        // 繪製敵人 (山豬)
+        enemies.forEach(enemy => {
+            if(enemy.y < 800) {
+                ctx.fillStyle = "#4E342E"; // 山豬褐
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                // 獠牙
+                ctx.fillStyle = "white";
+                if(enemy.velX < 0) ctx.fillRect(enemy.x, enemy.y+20, 5, 5);
+                else ctx.fillRect(enemy.x+25, enemy.y+20, 5, 5);
+            }
+        });
+
+        // 繪製玩家
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+        // 帽子
+        ctx.fillStyle = "#B71C1C";
+        ctx.fillRect(player.x-2, player.y, player.width+4, 10);
+
+        ctx.restore();
+
+        requestAnimationFrame(() => {
+            update();
+            draw();
+        });
+    }
+
+    function drawScenery() {
+        // 簡單的背景裝飾
+        // 巨木
+        if (player.x > 1000 && player.x < 2500) {
+            ctx.fillStyle = "rgba(46, 125, 50, 0.3)";
+            ctx.fillRect(1500, 100, 100, 600); // 巨木背景
+            ctx.fillRect(1800, 50, 120, 600);
+        }
+        // 日出太陽 (終點)
+        ctx.fillStyle = "rgba(255, 87, 34, 0.8)";
+        ctx.beginPath();
+        ctx.arc(2800, 200, 80, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    function updateEnvironment() {
+        if (player.x < 1000) locNameEl.innerText = "竹崎親水公園 (蒂芬妮藍)";
+        else if (player.x < 2000) locNameEl.innerText = "森林鐵道 (奮起湖)";
+        else locNameEl.innerText = "阿里山祝山 (觀雲海)";
+    }
+
+    function checkCollision(obj1, obj2) {
+        return (obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.width > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj1.height > obj2.y);
+    }
+
+    function gameOver() {
+        gameRunning = false;
+        msgEl.style.display = 'block';
+        msgEl.innerHTML = "體力耗盡!<br><span style='font-size:20px'>按 F5 重新挑戰</span>";
+        msgEl.style.color = "#FFCDD2";
+    }
+
+    function winGame() {
+        gameRunning = false;
+        msgEl.style.display = 'block';
+        msgEl.innerHTML = "日出達成!<br><span style='font-size:20px'>阿里山五奇成就解鎖</span>";
+        msgEl.style.color = "#FFD700";
+    }
+
+    // 按鍵監聽
+    const keys = {};
+    window.addEventListener('keydown', e => {
+        keys[e.code] = true;
+        if ((e.code === 'Space' || e.code === 'ArrowUp') && !player.jumping && gameRunning) {
+            player.velY = -JUMP_FORCE;
+            player.jumping = true;
+        }
+    });
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    // 啟動
+    initLevel();
+    update();
+    draw();
+
 </script>
 </body>
 </html>
